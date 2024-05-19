@@ -1,10 +1,15 @@
 plugins {
     id("java")
+    id("application")
     id("io.freefair.lombok") version "8.6"
 }
 
-group = "org.example"
-version = "1.0-SNAPSHOT"
+application {
+    mainClass.set("cz.cuni.mff.d3s.Runner")
+}
+
+group = "cz.cuni.mff.d3s"
+version = "1.0"
 
 repositories {
     mavenCentral()
