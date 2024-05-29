@@ -20,7 +20,7 @@ import java.nio.file.Path;
 import java.util.*;
 import java.util.stream.Collectors;
 
-public class Analysis {
+public class SourceAnalysis {
     private final Multimap<String, String> packagesPerProjectRoot = HashMultimap.create();
     private final Multimap<String, String> classesPerPackage = HashMultimap.create();
     private final Map<String, String> classToPackage = new HashMap<>();

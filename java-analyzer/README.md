@@ -18,6 +18,7 @@ Parses and resolves references in Java source code.
 
 where `<mode>` is one of the following:
 - `c` for counting the number of classes, methods, and fields in the repository
+- `project` for displaying the relationships between projects
 - `class` for displaying the relationships between classes
 - `package` for displaying the relationships between packages
 

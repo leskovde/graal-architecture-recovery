@@ -22,6 +22,7 @@ public class Runner {
             System.err.println("\tc - count file extensions");
             System.err.println("\tclass - display class references");
             System.err.println("\tpackage - display package references");
+            System.err.println("\tproject - display project references");
             System.exit(1);
         }
 
@@ -29,6 +30,7 @@ public class Runner {
 
         switch (args[0]) {
             case "c" -> countFileExtensions(analyzer);
+            case "project" -> analyzeProjects(analyzer);
             case "class" -> analyzeClasses(analyzer);
             case "package" -> analyzePackages(analyzer);
             default -> {
@@ -38,18 +40,40 @@ public class Runner {
         }
     }
 
+    private static void analyzeProjects(Analyzer analyzer) {
+        var result = runBuildToolAnalysis(analyzer);
+        result.printProjectDependencies();
+        result.showProjectDependencies();
+    }
+
     private static void analyzePackages(Analyzer analyzer) {
-        var result = runAnalysis(analyzer);
+        var result = runSourceAnalysis(analyzer);
         result.showPackageReferences();
     }
 
     private static void analyzeClasses(Analyzer analyzer) {
-        var result = runAnalysis(analyzer);
+        var result = runSourceAnalysis(analyzer);
         result.showClassReferences();
     }
 
-    private static Analysis runAnalysis(Analyzer analyzer) {
-        var analysisResult = new Analysis();
+    private static BuildToolAnalysis runBuildToolAnalysis(Analyzer analyzer) {
+        var analysisResult = new BuildToolAnalysis();
+        for (var buildFile : analyzer.getAllBuildFiles()) {
+            try {
+                var projectName = analyzer.getProjectNameFromBuildTool(buildFile);
+                var dependencies = analyzer.getProjectDependenciesFromBuildTool(buildFile);
+                for (var dependency : dependencies) {
+                    analysisResult.addProjectDependency(projectName, dependency);
+                }
+            } catch (Exception e) {
+                System.err.println("File " + buildFile + " could not be parsed correctly: " + e);
+            }
+        }
+        return analysisResult;
+    }
+
+    private static SourceAnalysis runSourceAnalysis(Analyzer analyzer) {
+        var analysisResult = new SourceAnalysis();
         // Some projects are unparsable, so we only iterate over the relevant ones
         for (var project : new String[] { "compiler", "espresso", "regex", "sdk", "sulong", "tools", "visualizer" }) {
             var sources = analyzer.getJavaSourceRoots(project);
@@ -87,7 +111,7 @@ public class Runner {
         System.out.println("+---------------------------------+");
     }
 
-    private static void analyzeUnit(SourceRoot sourceRoot, CompilationUnit unit, Analysis analysisResult) {
+    private static void analyzeUnit(SourceRoot sourceRoot, CompilationUnit unit, SourceAnalysis analysisResult) {
         var declaredPackage = unit.getPackageDeclaration();
         var usedImports = unit.getImports();
         processClassNames(sourceRoot, unit, analysisResult, declaredPackage, usedImports.stream().map(NodeWithName::getNameAsString).toList());
@@ -99,12 +123,12 @@ public class Runner {
         }
     }
 
-    private static void processClassMembers(Analysis analysisResult, TypeDeclaration<?> clazz, Optional<PackageDeclaration> declaredPackage) {
+    private static void processClassMembers(SourceAnalysis analysisResult, TypeDeclaration<?> clazz, Optional<PackageDeclaration> declaredPackage) {
         processMethodCalls(analysisResult, clazz, declaredPackage);
         processFieldAccesses(analysisResult, clazz, declaredPackage);
     }
 
-    private static void processFieldAccesses(Analysis analysisResult, TypeDeclaration<?> clazz, Optional<PackageDeclaration> declaredPackage) {
+    private static void processFieldAccesses(SourceAnalysis analysisResult, TypeDeclaration<?> clazz, Optional<PackageDeclaration> declaredPackage) {
         var fieldAccesses = clazz.findAll(FieldAccessExpr.class).stream()
                 .map(field -> {
                     try {
@@ -123,7 +147,7 @@ public class Runner {
         }
     }
 
-    private static void processMethodCalls(Analysis analysisResult, TypeDeclaration<?> clazz, Optional<PackageDeclaration> declaredPackage) {
+    private static void processMethodCalls(SourceAnalysis analysisResult, TypeDeclaration<?> clazz, Optional<PackageDeclaration> declaredPackage) {
         var methodCalls = clazz.findAll(MethodCallExpr.class).stream()
                 .map(call -> {
                     try {
@@ -140,7 +164,7 @@ public class Runner {
         }
     }
 
-    private static void processClassNames(SourceRoot sourceRoot, CompilationUnit unit, Analysis analysisResult, Optional<PackageDeclaration> declaredPackage, List<String> imports) {
+    private static void processClassNames(SourceRoot sourceRoot, CompilationUnit unit, SourceAnalysis analysisResult, Optional<PackageDeclaration> declaredPackage, List<String> imports) {
         var declaredClasses = unit.getTypes().stream()
                 .map(TypeDeclaration::getFullyQualifiedName)
                 .filter(Optional::isPresent)
